@@ -5,6 +5,7 @@ using AzureSignToolClickOnce.Utils;
 using RSAKeyVaultProvider;
 using System;
 using System.Collections.Generic;
+using System.Configuration;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -16,9 +17,14 @@ namespace AzureSignToolClickOnce.Services
     public class AzureSignToolService
     {
         private string _magetoolPath = @"C:\Program Files (x86)\Microsoft SDKs\Windows\v10.0A\bin\NETFX 4.8 Tools\mage.exe";
-        public void Start(string description, string path, string timeStampUrl, string timeStampUrlRfc3161, string keyVaultUrl, string tenantId, string clientId, string clientSecret, string certName)
+        public void Start(string description, string path, string timeStampUrl, string timeStampUrlRfc3161, string keyVaultUrl, string tenantId, string certName, bool excludeManagedIdentityCredentials)
         {
-            var tokenCredential = new ClientSecretCredential(tenantId, clientId, clientSecret);
+            var credentialOption = new DefaultAzureCredentialOptions
+            {
+                TenantId = tenantId,
+                ExcludeManagedIdentityCredential = excludeManagedIdentityCredentials
+            };
+            var tokenCredential = new DefaultAzureCredential(credentialOption);
             var client = new CertificateClient(vaultUri: new Uri(keyVaultUrl), credential: tokenCredential);
             var cert = client.GetCertificate(certName).Value;
             var certificate = new X509Certificate2(cert.Cer);
@@ -83,7 +89,8 @@ namespace AzureSignToolClickOnce.Services
             // Order by desending length to put the inner one first
             var clickOnceFilesToSign = files
                                             .Where(f => ".vsto".Equals(Path.GetExtension(f), StringComparison.OrdinalIgnoreCase) ||
-                                                        ".application".Equals(Path.GetExtension(f), StringComparison.OrdinalIgnoreCase))
+                                                        ".application".Equals(Path.GetExtension(f), StringComparison.OrdinalIgnoreCase) ||
+                                                        ".xbap".Equals(Path.GetExtension(f), StringComparison.OrdinalIgnoreCase))
                                             .Select(f => new { file = f, f.Length })
                                             .OrderByDescending(f => f.Length)
                                             .Select(f => f.file)
